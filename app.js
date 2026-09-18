@@ -647,125 +647,24 @@ function openProfileModal(isOnboarding){
   });
 }
 
+
 /* ============ HOME ============ */
 function greetingText(){
   const h = new Date().getHours();
-  const name = firstName();
-  const base = h<12 ? "Bom dia" : (h<18 ? "Boa tarde" : "Boa noite");
-  const emoji = h<12 ? "☀️" : (h<18 ? "🌤️" : "🌙");
-  return `${base}${name?', '+name:''}! ${emoji}`;
+  if(h < 12) return 'Bom dia';
+  if(h < 18) return 'Boa tarde';
+  return 'Boa noite';
 }
+
 function dayCompletionPct(){
-  const t = todayKey();
-  const metrics = [];
-  const waterGoal = db.profile.waterGoalMl || 2000;
-  metrics.push(Math.min(100, Math.round(((db.water[t]||0)/waterGoal)*100)));
-  metrics.push((db.habitLogs[t]||{}).__workout ? 100 : 0);
-  if(db.habits.length>0){
-    const done = db.habits.filter(h=>(db.habitLogs[t]||{})[h.id]).length;
-    metrics.push(Math.round((done/db.habits.length)*100));
-  }
-  if(db.profile.calorieGoal){
-    const mealsToday = db.meals[t]||[];
-    const kcalToday = mealsToday.reduce((s,m)=>s+(Number(m.kcal)||0),0);
-    metrics.push(Math.min(100, Math.round((kcalToday/db.profile.calorieGoal)*100)));
-  }
-  if(db.sleep[t]){
-    metrics.push(Math.min(100, Math.round((db.sleep[t].hours/7.5)*100)));
-  }
-  return Math.round(avg(metrics));
-}
-/* ============ MAIS (menu) ============ */
-function renderMais(){
-  const main = document.getElementById('main');
-  const items = [
-    {route:'jejum', icon:'⏳', title:'Jejum intermitente', sub:'Cronômetro, guia, receitas e progresso'},
-    {route:'evolucao', icon:'📊', title:'Evolução', sub:'Calendário, linha do tempo, desafios e ranking'},
-    {route:'habitos', icon:'✅', title:'Hábitos', sub:'Seus hábitos e controle de compulsão'},
-    {route:'saude', icon:'🩺', title:'Agenda & Saúde', sub:'Consultas, exames e medicamentos'},
-    {route:'relatorio', icon:'📄', title:'Relatório mensal', sub:'Resumo do mês para salvar ou imprimir'}
-  ];
-  let html = `<div class="hint" style="margin-bottom:12px;">Tudo que você usa com menos frequência, num só lugar.</div>`;
-  html += items.map(it=>`
-    <div class="card mais-item" data-goto="${it.route}">
-      <div style="font-size:24px;">${it.icon}</div>
-      <div style="flex:1;">
-        <div style="font-weight:800; color:var(--text); font-size:14.5px;">${it.title}</div>
-        <div class="hint" style="margin-top:1px;">${it.sub}</div>
-      </div>
-      <div style="color:var(--muted); font-size:16px;">›</div>
-    </div>
-  `).join("");
-  html += `<div class="card mais-item" id="maisSettingsRow">
-    <div style="font-size:24px;">⚙️</div>
-    <div style="flex:1;">
-      <div style="font-weight:800; color:var(--text); font-size:14.5px;">Ajustes</div>
-      <div class="hint" style="margin-top:1px;">Perfil, tema, metas e backup</div>
-    </div>
-    <div style="color:var(--muted); font-size:16px;">›</div>
-  </div>`;
-  main.innerHTML = html;
-  main.querySelectorAll('[data-goto]').forEach(el=>{ el.onclick = ()=>go(el.dataset.goto); });
-  document.getElementById('maisSettingsRow').onclick = openSettingsModal;
+  const tKey = todayKey();
+  const dayWater = (db.water || []).filter(w => w.date === tKey).reduce((acc, w) => acc + (Number(w.amount) || 0), 0);
+  const waterMeta = Number(db.settings?.waterGoal) || 2500;
+  const dayCals = (db.meals || []).filter(m => m.date === tKey).reduce((acc, m) => acc + (Number(m.calories) || 0), 0);
+  const calMeta = Number(db.settings?.calorieGoal) || 2000;
+  return Math.min(100, Math.round(((dayWater / waterMeta) * 0.5 + (Math.min(dayCals, calMeta) / calMeta) * 0.5) * 100)) || 0;
 }
 
-/* ============ SONO & HUMOR ============ */
-const MOOD_OPTIONS = [
-  {key:'pessimo', icon:'😔', label:'Péssimo'},
-  {key:'ruim', icon:'😕', label:'Ruim'},
-  {key:'ok', icon:'🙂', label:'Bom'},
-  {key:'otimo', icon:'😃', label:'Ótimo'}
-];
-function moodInfo(key){ return MOOD_OPTIONS.find(m=>m.key===key); }
-function openSleepModal(){
-  const t = todayKey();
-  const cur = db.sleep[t] || {};
-  openModal(`
-    <h2>😴 Sono</h2>
-    <div class="field"><label>Quantas horas você dormiu?</label><input type="text" inputmode="decimal" id="sleepHours" placeholder="Ex: 7,5" value="${cur.hours!=null?fmtNum(cur.hours,1):''}" autofocus></div>
-    <div class="field"><label>Como foi a qualidade?</label>
-      <div class="seg" id="sleepQuality">
-        ${['Ruim','Regular','Boa','Ótima'].map(q=>`<button type="button" data-v="${q}" class="${cur.quality===q?'active':''}">${q}</button>`).join('')}
-      </div>
-    </div>
-    <div class="modal-actions">
-      <button class="btn secondary" id="mCancel">Cancelar</button>
-      <button class="btn" id="mSave">Salvar</button>
-    </div>
-  `, ()=>{
-    segWire('sleepQuality');
-    document.getElementById('mCancel').onclick = closeModal;
-    document.getElementById('mSave').onclick = ()=>{
-      const raw = document.getElementById('sleepHours').value.replace(',','.');
-      const hours = parseFloat(raw);
-      if(isNaN(hours) || hours<0 || hours>24){ toast("Informe um número de horas válido."); return; }
-      db.sleep[t] = { hours, quality: segGetValue('sleepQuality') };
-      saveDB(); closeModal(); render();
-      toast("Sono registrado.");
-    };
-  });
-}
-function openMoodModal(){
-  const t = todayKey();
-  openModal(`
-    <h2>😊 Como você está se sentindo hoje?</h2>
-    <div class="mood-grid">
-      ${MOOD_OPTIONS.map(m=>`<button class="mood-btn ${db.mood[t]===m.key?'active':''}" data-mood="${m.key}">
-        <span class="mood-emoji">${m.icon}</span><span class="mood-label">${m.label}</span>
-      </button>`).join('')}
-    </div>
-  `, ()=>{
-    document.querySelectorAll('[data-mood]').forEach(b=>{
-      b.onclick = ()=>{
-        db.mood[t] = b.dataset.mood;
-        saveDB(); closeModal(); render();
-        toast("Humor registrado.");
-      };
-    });
-  });
-}
-
-/* ============ HOME ============ */
 function renderHome(){
   const top = document.getElementById('topbar');
   const main = document.getElementById('main');
@@ -778,7 +677,7 @@ function renderHome(){
     <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
       <div>
         <div style="font-size:12px;color:var(--lilac);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Viva Leve</div>
-        <div style="font-size:20px;font-weight:800;color:var(--text);">Olá, ${escapeHTML(userName)} 👋</div>
+        <div style="font-size:20px;font-weight:800;color:var(--text);">${greetingText()}, ${escapeHTML(userName)} 👋</div>
       </div>
       <button onclick="go('mais')" style="background:var(--card-elevated);border:1px solid var(--border);border-radius:50%;width:38px;height:38px;display:flex;align-items:center;justify-content:center;cursor:pointer;">
         <span style="font-size:16px;">⚙️</span>
@@ -798,7 +697,7 @@ function renderHome(){
   const weights = (db.weights || []).slice().sort((a,b) => b.date.localeCompare(a.date));
   const latestWeight = weights.length > 0 ? Number(weights[0].weight).toFixed(1) : (user.initialWeight || '--');
   
-  const pct = Math.min(100, Math.round(((dayWater / waterMeta) * 0.5 + (Math.min(dayCals, calMeta) / calMeta) * 0.5) * 100)) || 0;
+  const pct = dayCompletionPct();
 
   let fastBanner = '';
   if(db.fasting && db.fasting.active){
@@ -915,7 +814,6 @@ function toggleTodayWorkout(){
   renderHome();
 }
 
-
 /* ============ MAIS (menu) ============ */
 function renderMais(){
   const main = document.getElementById('main');
@@ -1007,166 +905,7 @@ function openMoodModal(){
 }
 
 /* ============ HOME ============ */
-function renderHome(){
-  const main = document.getElementById('main');
-  const t = todayKey();
-  const dateLabel = keyToDate(t).toLocaleDateString('pt-BR', {weekday:'long', day:'numeric', month:'long'});
 
-  const lastWeight = db.weights.length ? db.weights[db.weights.length-1] : null;
-  const prevWeight = db.weights.length>1 ? db.weights[db.weights.length-2] : null;
-  let weightSub = "Nenhum registro ainda";
-  let weightArrow = "";
-  if(lastWeight){
-    if(db.profile.weightGoal!=null){
-      const diff = lastWeight.value - db.profile.weightGoal;
-      weightSub = Math.abs(diff)<0.05 ? "Meta atingida! 🎉" : (diff>0 ? `${fmtNum(diff,1)} kg até a meta` : `${fmtNum(Math.abs(diff),1)} kg abaixo da meta`);
-    } else {
-      weightSub = "Defina uma meta em Ajustes";
-    }
-    if(prevWeight){
-      const d = lastWeight.value - prevWeight.value;
-      weightArrow = d<0 ? ` ↓` : (d>0 ? ` ↑` : ` →`);
-    }
-  }
-
-  const waterToday = db.water[t] || 0;
-  const waterGoal = db.profile.waterGoalMl || 2000;
-  const waterPct = Math.min(100, Math.round((waterToday/waterGoal)*100));
-
-  const mealsToday = db.meals[t] || [];
-  const kcalToday = mealsToday.reduce((s,m)=>s+(Number(m.kcal)||0),0);
-  const calGoal = db.profile.calorieGoal;
-
-  const habitsToday = db.habits;
-  const doneToday = habitsToday.filter(h=> (db.habitLogs[t]||{})[h.id]).length;
-  const habitPct = habitsToday.length>0 ? Math.round((doneToday/habitsToday.length)*100) : 0;
-
-  let html = `
-    <div class="greeting">
-      <div class="gtitle">${greetingText()}</div>
-      <div class="gdate">${dateLabel}${db.profile.objective ? ' · '+objectiveLabel() : ''}</div>
-    </div>
-  `;
-
-  if(!isStandalone()){
-    html += `<div class="install-banner"><div class="ib-text"><b>Instale o Leve</b><br>Use como um app, direto na tela inicial.</div><button class="btn small" id="installBannerBtn">Instalar</button></div>`;
-  }
-
-  const tips = generateCoachTips();
-  html += `<div class="coach-card">
-    <div class="coach-head"><span class="ci">🤖</span><span class="ct">Dicas do assistente</span></div>
-    ${tips.map(msg=>`<div class="coach-msg"><span class="cm-dot"></span><span>${msg}</span></div>`).join("")}
-  </div>`;
-
-  html += `<div class="stat-grid">
-    <div class="stat-card" data-goto="peso">
-      <div class="sc-top"><span class="sc-icon">⚖️</span>${weightArrow?`<span style="font-size:15px;">${weightArrow}</span>`:''}</div>
-      <div class="sc-label">Peso atual</div>
-      <div class="sc-val">${lastWeight?fmtNum(lastWeight.value,1)+' kg':'—'}</div>
-      <div class="sc-sub">${weightSub}</div>
-    </div>
-    <div class="stat-card" data-goto="agua">
-      <div class="sc-top"><span class="sc-icon">💧</span></div>
-      <div class="sc-label">Água hoje</div>
-      <div class="sc-val">${fmtNum(waterToday)} ml</div>
-      <div class="sc-sub">Meta: ${fmtNum(waterGoal)} ml</div>
-      <div class="sc-track"><div class="sc-fill" style="width:${waterPct}%; background:var(--blue);"></div></div>
-    </div>
-    <div class="stat-card" data-goto="comida">
-      <div class="sc-top"><span class="sc-icon">🍽️</span></div>
-      <div class="sc-label">Calorias hoje</div>
-      <div class="sc-val">${fmtNum(kcalToday)} kcal</div>
-      <div class="sc-sub">${calGoal!=null ? 'Meta: '+fmtNum(calGoal)+' kcal' : 'Sem meta definida'}</div>
-      ${calGoal!=null ? `<div class="sc-track"><div class="sc-fill" style="width:${Math.min(100,Math.round((kcalToday/calGoal)*100))}%; background:var(--orange);"></div></div>` : ''}
-    </div>
-    <div class="stat-card" data-goto="habitos">
-      <div class="sc-top"><span class="sc-icon">✅</span></div>
-      <div class="sc-label">Hábitos hoje</div>
-      <div class="sc-val">${doneToday} de ${habitsToday.length}</div>
-      <div class="sc-sub">${habitsToday.length===0?'Nenhum hábito criado':(habitPct===100?'Tudo certo hoje! 🎉':'Continue assim')}</div>
-      ${habitsToday.length>0?`<div class="sc-track"><div class="sc-fill" style="width:${habitPct}%; background:var(--green);"></div></div>`:''}
-    </div>
-    <div class="stat-card" id="sleepCard">
-      <div class="sc-top"><span class="sc-icon">😴</span></div>
-      <div class="sc-label">Sono</div>
-      <div class="sc-val">${db.sleep[t]?fmtNum(db.sleep[t].hours,1)+'h':'—'}</div>
-      <div class="sc-sub">${db.sleep[t]?(db.sleep[t].quality||'Registrado'):'Toque para registrar'}</div>
-    </div>
-    <div class="stat-card" id="moodCard">
-      <div class="sc-top"><span class="sc-icon">${db.mood[t]?moodInfo(db.mood[t]).icon:'😊'}</span></div>
-      <div class="sc-label">Humor</div>
-      <div class="sc-val">${db.mood[t]?moodInfo(db.mood[t]).label:'—'}</div>
-      <div class="sc-sub">${db.mood[t]?'Registrado hoje':'Toque para registrar'}</div>
-    </div>
-    <div class="stat-card full" data-goto="treino">
-      <div class="sc-top"><span class="sc-icon">🏋️</span></div>
-      <div class="sc-label">Treino de hoje</div>
-      <div class="sc-val">${(db.habitLogs[t]||{}).__workout ? 'Treinado ✓' : 'Ainda não treinou'}</div>
-      <div class="sc-sub">${habitStreak('__workout')>0 ? `🔥 ${habitStreak('__workout')} dia(s) seguidos` : 'Toque para ver exercícios'}</div>
-    </div>
-  </div>`;
-
-  if(db.weights.length>0){
-    const pts = db.weights.slice(-30).map(w=>({value:w.value, label:formatShort(w.date)}));
-    html += `<div class="section-label">Evolução do peso</div>
-    <div class="card"><div class="chart-wrap">${lineChartSvg(pts)}</div></div>`;
-  }
-
-  const badges = computeBadges();
-  const earnedBadges = badges.filter(b=>b.earned);
-  html += `<div class="section-label">🏆 Conquistas ${earnedBadges.length>0?`(${earnedBadges.length}/${badges.length})`:''}</div>`;
-  html += `<div class="badge-grid">${badges.map(b=>`
-    <div class="badge-item ${b.earned?'earned':'locked'}" title="${escapeAttr(b.desc)}">
-      <div class="badge-icon">${b.icon}</div>
-      <div class="badge-label">${b.label}</div>
-    </div>
-  `).join('')}</div>`;
-
-  const pct = dayCompletionPct();
-  html += `<div class="card day-complete-card">
-    <div class="ring-wrap">${ringSvg(pct, 78, 8, 'var(--primary)')}
-      <div class="ring-label"><div class="rval" style="font-size:16px;">${pct}%</div></div>
-    </div>
-    <div style="flex:1;">
-      <div style="font-weight:800; color:var(--text); font-size:14.5px;">Você completou ${pct}% do seu dia.</div>
-      <div class="hint" style="margin-top:2px;">Água, treino, hábitos e calorias contam para esse número.</div>
-    </div>
-  </div>`;
-
-  html += `<div class="card craving-card" id="cravingBtnHome" style="display:flex; align-items:center; gap:12px; cursor:pointer;">
-    <div style="font-size:24px;">🍫</div>
-    <div style="flex:1;">
-      <div style="font-weight:800; color:var(--text); font-size:13.5px;">Estou com vontade de comer</div>
-      <div class="hint" style="margin-top:1px;">Toque aqui antes de decidir.</div>
-    </div>
-  </div>`;
-
-  if(db.fasting.active){
-    const a = db.fasting.active;
-    const elapsed = Date.now()-a.startAt;
-    html += `<div class="card" style="display:flex; align-items:center; gap:12px; cursor:pointer;" data-goto="jejum">
-      <div style="font-size:24px;">⏳</div>
-      <div style="flex:1;">
-        <div style="font-weight:800; color:var(--text); font-size:13.5px;">Jejum em andamento</div>
-        <div class="hint" style="margin-top:1px;">${fmtDuration(elapsed)} até agora — meta de ${a.goalHours}h</div>
-      </div>
-    </div>`;
-  }
-
-  main.innerHTML = html;
-  main.querySelectorAll('[data-goto]').forEach(el=>{ el.onclick = ()=>go(el.dataset.goto); });
-  const sleepCard = document.getElementById('sleepCard');
-  if(sleepCard) sleepCard.onclick = openSleepModal;
-  const moodCard = document.getElementById('moodCard');
-  if(moodCard) moodCard.onclick = openMoodModal;
-  const cravingHomeBtn = document.getElementById('cravingBtnHome');
-  if(cravingHomeBtn) cravingHomeBtn.onclick = openCravingModal;
-  const ibBtn = document.getElementById('installBannerBtn');
-  if(ibBtn) ibBtn.onclick = triggerInstall;
-  checkNewBadges();
-}
-
-/* ============ PESO ============ */
 let pesoRange = '30d'; // '7d' | '30d' | 'tudo'
 let pesoSubtab = 'peso'; // 'peso' | 'medidas' | 'calc'
 function renderPeso(){
