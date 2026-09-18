@@ -40,7 +40,7 @@ function defaultDB(){
     favMeals: [],
     travelMode: false,
     fasting: { protocol: '16:8', active: null, history: [] },
-    settings: { theme: "dark" }
+    settings: { theme: "light" }
   };
 }
 function todayKeySafe(){
@@ -52,7 +52,11 @@ function loadDB(){
     const raw = localStorage.getItem(STORAGE_KEY);
     if(raw){
       const p = JSON.parse(raw);
-      if(!p.settings) p.settings = {theme:"dark"};
+            if(!p.settings) p.settings = {theme:"light"};
+      if(!localStorage.getItem('vl_theme_v2')){
+        p.settings.theme = 'light';
+        localStorage.setItem('vl_theme_v2', '1');
+      }
       if(!p.settings.theme || !['light','dark','red','green','pink','blue'].includes(p.settings.theme)) p.settings.theme = 'light';
       if(!p.profile) p.profile = {weightGoal:null, waterGoalMl:2000, calorieGoal:null};
       if(p.profile.name===undefined) p.profile.name = null;
@@ -100,15 +104,15 @@ function saveDB(){
 let db = loadDB();
 
 const THEME_COLORS = {
-  light: '#0F7A4F',
-  dark: '#0D1712',
+  light: '#7C3AED',
+  dark: '#0B0A12',
   red: '#DC2626',
   green: '#16A34A',
   pink: '#DB2777',
   blue: '#2563EB'
 };
 const THEME_LABELS = {
-  light: 'Claro',
+  light: 'Claro (Roxo & Lilás)',
   dark: 'Escuro',
   red: 'Vermelho',
   green: 'Verde',
@@ -116,8 +120,8 @@ const THEME_LABELS = {
   blue: 'Azul'
 };
 const THEME_SWATCH_COLORS = {
-  light: {bg:'#F4F9F6', primary:'#0F7A4F'},
-  dark:  {bg:'#16211B', primary:'#2FD08A'},
+  light: {bg:'#F7F5FC', primary:'#7C3AED'},
+  dark:  {bg:'#151226', primary:'#8B5CF6'},
   red:   {bg:'#FFFFFF', primary:'#DC2626'},
   green: {bg:'#FFFFFF', primary:'#16A34A'},
   pink:  {bg:'#FFFFFF', primary:'#DB2777'},
