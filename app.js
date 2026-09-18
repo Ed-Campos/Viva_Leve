@@ -766,14 +766,6 @@ function renderHome(){
           <span class="summary-mini-label">🔥 Calorias</span>
           <span class="summary-mini-val">${dayCals} <span style="font-size:11px;color:var(--muted);font-weight:400;">/ ${calMeta} kcal</span></span>
         </div>
-        <div class="summary-mini-item">
-          <span class="summary-mini-label">🏋️ Treino</span>
-          <span class="summary-mini-val" style="color:${workoutDone ? 'var(--green)' : 'var(--muted)'};">${workoutDone ? 'Realizado ✓' : 'Pendente'}</span>
-        </div>
-        <div class="summary-mini-item">
-          <span class="summary-mini-label">⚖️ Peso Atual</span>
-          <span class="summary-mini-val">${latestWeight} <span style="font-size:11px;color:var(--muted);font-weight:400;">kg</span></span>
-        </div>
       </div>
     </div>
 
