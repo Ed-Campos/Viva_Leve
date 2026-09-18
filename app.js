@@ -408,14 +408,10 @@ function go(tab){ route = { tab }; render(); }
 
 const TABS = [
   {key:'home', icon:'🏠', label:'Início'},
-  {key:'peso', icon:'⚖️', label:'Peso'},
-  {key:'agua', icon:'💧', label:'Água'},
-  {key:'comida', icon:'🍽️', label:'Comida'},
-  {key:'treino', icon:'🏋️', label:'Treino'},
   {key:'mais', icon:'☰', label:'Mais'}
 ];
 const TAB_TITLES = {home:'Viva Leve', peso:'Peso', agua:'Água', comida:'Refeições', jejum:'Jejum intermitente', treino:'Treino', evolucao:'Evolução', habitos:'Hábitos', saude:'Agenda & Saúde', relatorio:'Relatório mensal', mais:'Mais'};
-const SUBPAGES = ['saude','relatorio','jejum','evolucao','habitos'];
+const SUBPAGES = ['peso','agua','comida','treino','saude','relatorio','jejum','evolucao','habitos'];
 const MAIS_ROUTES = ['jejum','evolucao','habitos','saude','relatorio'];
 
 function renderChrome(){
@@ -427,7 +423,7 @@ function renderChrome(){
     : `<h1>${TAB_TITLES[route.tab]}</h1><button class="action" id="btnSettings" title="Ajustes" style="position:relative;">⚙${dot}</button>`;
   document.getElementById('btnSettings').onclick = openSettingsModal;
   const backBtn = document.getElementById('btnBack');
-  if(backBtn) backBtn.onclick = ()=>go('mais');
+  if(backBtn) backBtn.onclick = ()=>go('home');
 
   const activeTabKey = MAIS_ROUTES.indexOf(route.tab)!==-1 ? 'mais' : route.tab;
   const tab = document.getElementById('tabbar');
@@ -788,11 +784,11 @@ function renderHome(){
         </div>
       </button>
 
-      <button class="quick-action-btn" onclick="toggleTodayWorkout()">
+      <button class="quick-action-btn" onclick="go('treino')">
         <div class="qa-icon" style="background:rgba(139,92,246,0.15);color:var(--primary);">🏋️</div>
         <div class="qa-info">
           <span class="qa-title">Treino</span>
-          <span class="qa-sub">${workoutDone ? 'Concluído ✓' : 'Marcar treino'}</span>
+          <span class="qa-sub">${workoutDone ? 'Concluído ✓' : 'Acessar treinos'}</span>
         </div>
       </button>
 
@@ -801,6 +797,30 @@ function renderHome(){
         <div class="qa-info">
           <span class="qa-title">Pesagem</span>
           <span class="qa-sub">Atualizar peso</span>
+        </div>
+      </button>
+
+      <button class="quick-action-btn" onclick="go('jejum')">
+        <div class="qa-icon" style="background:rgba(245,158,11,0.15);color:var(--gold);">⏳</div>
+        <div class="qa-info">
+          <span class="qa-title">Jejum</span>
+          <span class="qa-sub">${(db.fasting && db.fasting.active) ? 'Em andamento' : 'Cronômetro & metas'}</span>
+        </div>
+      </button>
+
+      <button class="quick-action-btn" onclick="saudeSubtab='agenda'; go('saude');">
+        <div class="qa-icon" style="background:rgba(16,185,129,0.15);color:#10B981;">📅</div>
+        <div class="qa-info">
+          <span class="qa-title">Agenda</span>
+          <span class="qa-sub">Rotina & lembretes</span>
+        </div>
+      </button>
+
+      <button class="quick-action-btn" onclick="saudeSubtab='medicamentos'; go('saude');">
+        <div class="qa-icon" style="background:rgba(236,72,153,0.15);color:#EC4899;">💊</div>
+        <div class="qa-info">
+          <span class="qa-title">Saúde</span>
+          <span class="qa-sub">Medicamentos & cuidados</span>
         </div>
       </button>
     </div>
