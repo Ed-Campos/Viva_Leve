@@ -1,3 +1,10 @@
+
+function escapeHtml(s){
+  if(s == null) return '';
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+}
+function escapeHTML(s){ return escapeHtml(s); }
+
 "use strict";
 
 /* ============ Storage ============ */
@@ -228,6 +235,8 @@ function confirmModal(title, text, confirmLabel, onConfirm){
   });
 }
 function escapeHtml(s){
+function escapeHtml(s){ return escapeHtml(s); }
+window.escapeHTML = escapeHtml;
   return String(s==null?"":s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 }
 function escapeAttr(s){ return escapeHtml(s); }
@@ -658,10 +667,13 @@ function greetingText(){
 
 function dayCompletionPct(){
   const tKey = todayKey();
-  const dayWater = (db.water || []).filter(w => w.date === tKey).reduce((acc, w) => acc + (Number(w.amount) || 0), 0);
-  const waterMeta = Number(db.settings?.waterGoal) || 2500;
-  const dayCals = (db.meals || []).filter(m => m.date === tKey).reduce((acc, m) => acc + (Number(m.calories) || 0), 0);
-  const calMeta = Number(db.settings?.calorieGoal) || 2000;
+  const dayWater = (db.water && typeof db.water[tKey] === 'number') ? db.water[tKey] : (Array.isArray(db.water) ? (db.water.filter(w=>w.date===tKey).reduce((a,b)=>a+(Number(b.amount)||0),0)) : 0);
+  const waterMeta = Number(db.profile?.waterGoalMl) || 2000;
+  
+  const todayMeals = (db.meals && Array.isArray(db.meals[tKey])) ? db.meals[tKey] : (Array.isArray(db.meals) ? db.meals.filter(m=>m.date===tKey) : []);
+  const dayCals = todayMeals.reduce((acc, m) => acc + (Number(m.kcal || m.calories) || 0), 0);
+  const calMeta = Number(db.profile?.calorieGoal) || 2000;
+  
   return Math.min(100, Math.round(((dayWater / waterMeta) * 0.5 + (Math.min(dayCals, calMeta) / calMeta) * 0.5) * 100)) || 0;
 }
 
@@ -677,7 +689,7 @@ function renderHome(){
     <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
       <div>
         <div style="font-size:12px;color:var(--lilac);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Viva Leve</div>
-        <div style="font-size:20px;font-weight:800;color:var(--text);">${greetingText()}, ${escapeHTML(userName)} 👋</div>
+        <div style="font-size:20px;font-weight:800;color:var(--text);">${greetingText()}, ${escapeHtml(userName)} 👋</div>
       </div>
       <button onclick="go('mais')" style="background:var(--card-elevated);border:1px solid var(--border);border-radius:50%;width:38px;height:38px;display:flex;align-items:center;justify-content:center;cursor:pointer;">
         <span style="font-size:16px;">⚙️</span>
@@ -685,16 +697,25 @@ function renderHome(){
     </div>
   `;
   
-  const dayCals = (db.meals || []).filter(m => m.date === tKey).reduce((acc, m) => acc + (Number(m.calories) || 0), 0);
-  const calMeta = Number(db.settings?.calorieGoal) || 2000;
+  // Água
+  const dayWater = (db.water && typeof db.water[tKey] === 'number') ? db.water[tKey] : 0;
+  const waterMeta = Number(db.profile?.waterGoalMl) || 2000;
   
-  const dayWater = (db.water || []).filter(w => w.date === tKey).reduce((acc, w) => acc + (Number(w.amount) || 0), 0);
-  const waterMeta = Number(db.settings?.waterGoal) || 2500;
+  // Calorias
+  const todayMeals = (db.meals && Array.isArray(db.meals[tKey])) ? db.meals[tKey] : [];
+  const dayCals = todayMeals.reduce((acc, m) => acc + (Number(m.kcal || m.calories) || 0), 0);
+  const calMeta = Number(db.profile?.calorieGoal) || 2000;
   
-  const todayWorkouts = (db.workouts || []).filter(w => w.date === tKey);
-  const workoutDone = todayWorkouts.length > 0;
+  // Treino
+  let workoutDone = false;
+  if(Array.isArray(db.workouts)){
+    workoutDone = db.workouts.some(w => w.date === tKey && w.completed);
+  } else if(db.workouts && typeof db.workouts === 'object'){
+    workoutDone = !!db.workouts[tKey];
+  }
   
-  const weights = (db.weights || []).slice().sort((a,b) => b.date.localeCompare(a.date));
+  // Peso
+  const weights = Array.isArray(db.weights) ? db.weights.slice().sort((a,b) => (b.date||'').localeCompare(a.date||'')) : [];
   const latestWeight = weights.length > 0 ? Number(weights[0].weight).toFixed(1) : (user.initialWeight || '--');
   
   const pct = dayCompletionPct();
@@ -792,8 +813,8 @@ function renderHome(){
 
 function quickAddWater(){
   const tKey = todayKey();
-  if(!db.water) db.water = [];
-  db.water.push({ id: uid(), date: tKey, time: new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}), amount: 250 });
+  if(!db.water) db.water = {};
+  db.water[tKey] = (Number(db.water[tKey]) || 0) + 250;
   saveDB();
   toast('+250ml de água registrado!');
   renderHome();
@@ -802,17 +823,23 @@ function quickAddWater(){
 function toggleTodayWorkout(){
   const tKey = todayKey();
   if(!db.workouts) db.workouts = [];
-  const idx = db.workouts.findIndex(w => w.date === tKey);
-  if(idx >= 0){
-    db.workouts.splice(idx, 1);
-    toast('Treino de hoje removido.');
+  if(Array.isArray(db.workouts)){
+    const idx = db.workouts.findIndex(w => w.date === tKey);
+    if(idx >= 0){
+      db.workouts.splice(idx, 1);
+      toast('Treino de hoje removido.');
+    } else {
+      db.workouts.push({ id: uid(), date: tKey, title: 'Treino do Dia', completed: true });
+      toast('Treino de hoje concluído! 🏋️');
+    }
   } else {
-    db.workouts.push({ id: uid(), date: tKey, title: 'Treino do Dia', completed: true });
-    toast('Treino de hoje marcado como concluído! 🏋️');
+    db.workouts[tKey] = !db.workouts[tKey];
+    toast(db.workouts[tKey] ? 'Treino de hoje concluído! 🏋️' : 'Treino de hoje removido.');
   }
   saveDB();
   renderHome();
 }
+
 
 /* ============ MAIS (menu) ============ */
 function renderMais(){
