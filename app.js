@@ -692,10 +692,10 @@ function renderHome(){
   top.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
       <div>
-        <div style="font-size:12px;color:var(--lilac);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Viva Leve</div>
-        <div style="font-size:20px;font-weight:800;color:var(--text);">${greetingText()}, ${escapeHtml(userName)} 👋</div>
+        <div style="font-size:12px;color:rgba(255,255,255,0.85);font-weight:700;text-transform:uppercase;letter-spacing:0.8px;">Viva Leve</div>
+        <div style="font-size:20px;font-weight:800;color:#FFFFFF;margin-top:2px;">${greetingText()}, ${escapeHtml(userName)} 👋</div>
       </div>
-      <button onclick="go('mais')" style="background:var(--card-elevated);border:1px solid var(--border);border-radius:50%;width:38px;height:38px;display:flex;align-items:center;justify-content:center;cursor:pointer;">
+      <button onclick="openSettingsModal()" style="background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.3);border-radius:50%;width:38px;height:38px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;">
         <span style="font-size:16px;">⚙️</span>
       </button>
     </div>
